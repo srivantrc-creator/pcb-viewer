@@ -28,7 +28,7 @@ export default function FirstOrderCalc() {
 
   return (
     <div className="calc-page">
-      <h2>First-Order RC/RL Circuits (weeks 6-7)</h2>
+      <h2>First-Order RC/RL Circuits</h2>
       <p className="calc-intro">
         General solution form: <code>x(t) = x(∞) + [x(0) − x(∞)]·e<sup>-t/τ</sup></code> —
         works for the step response of any single-capacitor or single-inductor circuit once you've

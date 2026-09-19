@@ -1,5 +1,5 @@
-// First-order RC/RL step-response calculator (weeks 6-7: natural response,
-// step response, general solution x(t) = x(inf) + [x(0) - x(inf)] e^(-t/tau)).
+// First-order RC/RL step-response calculator: natural response, step
+// response, general solution x(t) = x(inf) + [x(0) - x(inf)] e^(-t/tau).
 
 export interface FirstOrderInput {
   kind: "RC" | "RL";

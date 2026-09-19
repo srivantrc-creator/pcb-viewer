@@ -20,7 +20,7 @@ export default function DiodeCalc() {
 
   return (
     <div className="calc-page">
-      <h2>Diode Circuits — Constant-Voltage-Drop Model (weeks 11-13)</h2>
+      <h2>Diode Circuits — Constant-Voltage-Drop Model</h2>
       <p className="calc-intro">
         Solves the standard intro-course series circuit: one source, one resistor, one diode. Uses
         the assume-ON-then-check method your course teaches for the CVD model.

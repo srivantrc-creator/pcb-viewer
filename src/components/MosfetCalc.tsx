@@ -19,7 +19,7 @@ export default function MosfetCalc() {
 
   return (
     <div className="calc-page">
-      <h2>MOSFET Bias Point &amp; Common-Source Gain (weeks 14-16)</h2>
+      <h2>MOSFET Bias Point &amp; Common-Source Gain</h2>
       <p className="calc-intro">
         Square-law NMOS model: cutoff when V<sub>OV</sub> ≤ 0, triode when V<sub>DS</sub> &lt; V<sub>OV</sub>,
         saturation otherwise. Amplifier gain formulas assume the transistor is biased in saturation.

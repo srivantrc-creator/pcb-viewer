@@ -1,4 +1,4 @@
-// Magnetically coupled circuits & ideal transformers (week 11).
+// Magnetically coupled circuits & ideal transformers.
 
 export interface CouplingInput {
   l1: number; // primary self-inductance, H

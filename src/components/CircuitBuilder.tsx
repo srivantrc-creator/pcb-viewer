@@ -129,8 +129,8 @@ export default function CircuitBuilder({ initialPresetIdx = 0 }: CircuitBuilderP
         <label className="field">
           <span>Mode</span>
           <select value={mode} onChange={(e) => setMode(e.target.value as "DC" | "AC")}>
-            <option value="DC">DC (weeks 1-5)</option>
-            <option value="AC">AC / phasor (weeks 8-10)</option>
+            <option value="DC">DC</option>
+            <option value="AC">AC / phasor</option>
           </select>
         </label>
         {isAC && (

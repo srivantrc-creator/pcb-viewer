@@ -1,5 +1,5 @@
-// NMOS operating-point and common-source small-signal gain calculator
-// (weeks 14-16). Uses the standard square-law model taught in intro
+// NMOS operating-point and common-source small-signal gain calculator.
+// Uses the standard square-law model taught in intro
 // circuits/electronics: iD = kn[(VGS-Vtn)VDS - VDS^2/2] in triode,
 // iD = (kn/2)(VGS-Vtn)^2 (1 + lambda*VDS) in saturation.
 

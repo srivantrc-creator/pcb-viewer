@@ -19,7 +19,7 @@ export default function MagneticsCalc() {
 
   return (
     <div className="calc-page">
-      <h2>Magnetically Coupled Circuits &amp; Transformers (week 11)</h2>
+      <h2>Magnetically Coupled Circuits &amp; Transformers</h2>
 
       <div className="calc-grid">
         <div className="calc-form">

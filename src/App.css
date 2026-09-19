@@ -233,52 +233,6 @@
   line-height: 1.5;
 }
 
-/* Syllabus / course map */
-.syllabus-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.syllabus-table th {
-  text-align: left;
-  color: #8a95a8;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  padding: 8px;
-  border-bottom: 1px solid #26314a;
-}
-
-.syllabus-table td {
-  padding: 10px 8px;
-  border-bottom: 1px solid #1a2130;
-  vertical-align: top;
-  color: #b6bfce;
-}
-
-.week-cell {
-  font-family: ui-monospace, Consolas, monospace;
-  color: #e8734a;
-  white-space: nowrap;
-}
-
-.tool-link {
-  background: #1b2536;
-  border: 1px solid #2a3548;
-  color: #dbe2ee;
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.tool-link:hover {
-  background: #24304a;
-  border-color: #e8734a;
-}
-
 /* Circuit builder */
 .builder-toolbar {
   display: flex;

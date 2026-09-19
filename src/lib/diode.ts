@@ -1,5 +1,5 @@
 // Simple series diode circuit solver using the constant-voltage-drop (CVD)
-// model — the standard intro-circuits approach (weeks 11-13): assume the
+// model — the standard intro-circuits approach: assume the
 // diode is ON with a fixed forward drop Vgamma, solve, then check that the
 // resulting current is actually positive (forward); if not, it's OFF.
 

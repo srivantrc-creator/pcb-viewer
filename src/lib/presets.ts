@@ -78,7 +78,7 @@ export const PRESETS: Preset[] = [
   },
   {
     name: "AC RLC series",
-    description: "R, L, and C in series — find the impedance and phase at a given frequency (weeks 8-10).",
+    description: "R, L, and C in series — find the impedance and phase at a given frequency.",
     mode: "AC",
     freqHz: 500,
     elements: [
