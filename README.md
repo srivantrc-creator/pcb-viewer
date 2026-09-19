@@ -1,4 +1,4 @@
-# Circuit Lab
+# Chalem Circuit Lab
 
 An interactive toolkit for linear circuit analysis — the kind of tool
 you'd actually use to check homework, not just something to put on a
@@ -9,9 +9,12 @@ phasor analysis, first-order transients, diodes, and MOSFETs.
 
 - **Circuit Builder** — enter a netlist (elements between labeled nodes,
   node 0 = ground), and it solves for every node voltage and element
-  current/power using Modified Nodal Analysis. The same solver runs in DC
-  mode and AC/phasor mode (R/L/C as complex impedances at a chosen
-  frequency) — DC is just AC at ω = 0.
+  current/power using Modified Nodal Analysis. The schematic redraws
+  itself as a textbook-style orthogonal diagram — resistor zigzags,
+  source circles, an IEEE ground symbol, and labeled current-reference
+  arrows — for any netlist you build, not just a fixed example. The same
+  solver runs in DC mode and AC/phasor mode (R/L/C as complex impedances
+  at a chosen frequency) — DC is just AC at ω = 0.
   - **Thevenin/Norton tab**: pick two "port" nodes, get V_th, R_th/Z_th, and I_N.
   - **Superposition tab**: see each independent source's individual
     contribution to a node voltage, with the others zeroed.

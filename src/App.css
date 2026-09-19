@@ -5,7 +5,8 @@
   width: 100%;
   background: #0b0f17;
   color: #e6e8ee;
-  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  font-family: -apple-system, "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
 .app-header {
@@ -14,9 +15,9 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 14px;
-  padding: 14px 24px;
+  padding: 15px 26px;
   border-bottom: 1px solid #1e2634;
-  background: linear-gradient(180deg, #121826 0%, #0e131e 100%);
+  background: linear-gradient(180deg, #131a29 0%, #0e131e 100%);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -24,21 +25,37 @@
 
 .brand {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #151f30;
+  border: 1px solid #263149;
+  color: #4ad991;
+  flex-shrink: 0;
 }
 
 .brand h1 {
   font-size: 19px;
   margin: 0;
   font-weight: 700;
-  letter-spacing: -0.2px;
-  color: #f2f4f8;
+  letter-spacing: -0.3px;
+  color: #f5f7fb;
 }
 
 .tagline {
   font-size: 12.5px;
   color: #7c8798;
+  padding-left: 12px;
+  margin-left: 2px;
+  border-left: 1px solid #263149;
 }
 
 .tab-nav {
@@ -275,8 +292,9 @@
 .schematic-panel {
   background: #101623;
   border: 1px solid #1e2634;
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 16px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 8px 20px -14px rgba(0, 0, 0, 0.6);
 }
 
 .element-editor h3,

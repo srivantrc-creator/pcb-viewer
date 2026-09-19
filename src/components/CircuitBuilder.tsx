@@ -4,7 +4,7 @@ import { newId, nodeSet } from "../lib/circuitTypes";
 import { solveCircuit, type SolveResult } from "../lib/mna";
 import { computeThevenin, superpositionBreakdown } from "../lib/analysis";
 import { mag, phaseDeg, type Complex } from "../lib/complex";
-import { layoutNodes } from "../lib/layout";
+import { layoutSchematic, currentSuffix, type ElementRoute, type Pt } from "../lib/schematicLayout";
 import { PRESETS } from "../lib/presets";
 
 const TYPE_META: Record<ElementType, { label: string; unit: string; color: string }> = {
@@ -26,6 +26,230 @@ function fmtNum(n: number, digits = 4): string {
 function fmtComplex(c: Complex, isAC: boolean): string {
   if (!isAC) return `${fmtNum(c.re)}`;
   return `${fmtNum(mag(c))} ∠ ${fmtNum(phaseDeg(c), 3)}°`;
+}
+
+// ---- Schematic symbol rendering -------------------------------------------------
+// Each element is drawn in its own local coordinate frame: local -x is always the
+// `symbolStart` side of its route, local +x the `symbolEnd` side. A single
+// translate+rotate transform places that frame on the actual (horizontal or
+// vertical) wire segment, so every symbol only has to be authored once.
+
+const SCHEM_BG = "#0c1420";
+const WIRE_COLOR = "#5b6b85";
+const SYMBOL_HALF = 22;
+
+function dist(a: Pt, b: Pt): number {
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+function midpoint(a: Pt, b: Pt): Pt {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+function angleDeg(a: Pt, b: Pt): number {
+  return (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+}
+function unitVec(a: Pt, b: Pt): Pt {
+  const d = dist(a, b) || 1;
+  return { x: (b.x - a.x) / d, y: (b.y - a.y) / d };
+}
+
+function resistorZigzagPath(h: number): string {
+  const amp = 9;
+  const pts: [number, number][] = [
+    [-h, 0],
+    [-h * 0.6, -amp],
+    [-h * 0.2, amp],
+    [h * 0.2, -amp],
+    [h * 0.6, amp],
+    [h, 0],
+  ];
+  return "M " + pts.map((p) => p.join(" ")).join(" L ");
+}
+
+function inductorCoilPath(h: number): string {
+  const n = 4;
+  const step = (2 * h) / n;
+  let d = `M ${-h} 0`;
+  for (let i = 0; i < n; i++) {
+    const x1 = -h + (i + 1) * step;
+    const r = step / 2;
+    d += ` A ${r} ${r} 0 0 1 ${x1} 0`;
+  }
+  return d;
+}
+
+/** Renders one element's symbol body in its local (-h..h along x) coordinate frame. */
+function ElementSymbolBody({
+  el,
+  color,
+  h,
+  positiveAtStart,
+}: {
+  el: CircuitElement;
+  color: string;
+  h: number;
+  positiveAtStart: boolean;
+}) {
+  switch (el.type) {
+    case "resistor":
+      return (
+        <>
+          <rect x={-h - 3} y={-13} width={2 * h + 6} height={26} fill={SCHEM_BG} />
+          <path d={resistorZigzagPath(h)} stroke={color} strokeWidth={2.25} fill="none" strokeLinejoin="round" />
+        </>
+      );
+    case "inductor":
+      return (
+        <>
+          <rect x={-h - 3} y={-13} width={2 * h + 6} height={26} fill={SCHEM_BG} />
+          <path d={inductorCoilPath(h)} stroke={color} strokeWidth={2.25} fill="none" />
+        </>
+      );
+    case "capacitor": {
+      const gap = 6;
+      return (
+        <>
+          <rect x={-h - 3} y={-16} width={2 * h + 6} height={32} fill={SCHEM_BG} />
+          <line x1={-gap} y1={-13} x2={-gap} y2={13} stroke={color} strokeWidth={2.5} />
+          <line x1={gap} y1={-13} x2={gap} y2={13} stroke={color} strokeWidth={2.5} />
+        </>
+      );
+    }
+    case "vsource": {
+      const r = Math.min(h, 20);
+      const plusX = (positiveAtStart ? -1 : 1) * r * 0.48;
+      const minusX = -plusX;
+      return (
+        <>
+          <rect x={-r - 3} y={-r - 3} width={2 * r + 6} height={2 * r + 6} fill={SCHEM_BG} />
+          <circle cx={0} cy={0} r={r} fill={SCHEM_BG} stroke={color} strokeWidth={2.25} />
+          <line x1={plusX - 4} y1={0} x2={plusX + 4} y2={0} stroke={color} strokeWidth={1.75} />
+          <line x1={plusX} y1={-4} x2={plusX} y2={4} stroke={color} strokeWidth={1.75} />
+          {/* Drawn along local y (not x) so it stays visible across the wire, not parallel to it, once rotated. */}
+          <line x1={minusX} y1={-4} x2={minusX} y2={4} stroke={color} strokeWidth={1.75} />
+        </>
+      );
+    }
+    case "isource": {
+      const r = Math.min(h, 20);
+      return (
+        <>
+          <rect x={-r - 3} y={-r - 3} width={2 * r + 6} height={2 * r + 6} fill={SCHEM_BG} />
+          <circle cx={0} cy={0} r={r} fill={SCHEM_BG} stroke={color} strokeWidth={2.25} />
+          <g transform={positiveAtStart ? undefined : "rotate(180)"}>
+            <line x1={-r * 0.55} y1={0} x2={r * 0.5} y2={0} stroke={color} strokeWidth={2} />
+            <path
+              d={`M ${r * 0.5 - 6} ${-5} L ${r * 0.5} 0 L ${r * 0.5 - 6} 5`}
+              stroke={color}
+              strokeWidth={2}
+              fill="none"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+          </g>
+        </>
+      );
+    }
+    default:
+      return null;
+  }
+}
+
+/** Full render for one element: wire polyline, symbol, name/value labels, and a
+ * reference-direction current arrow + label (I with the element's suffix). */
+function SchematicElement({
+  route,
+  color,
+  unit,
+  currentVal,
+  currentLabel,
+  isAC,
+}: {
+  route: ElementRoute;
+  color: string;
+  unit: string;
+  currentVal: Complex | undefined;
+  currentLabel: string;
+  isAC: boolean;
+}) {
+  const { element: el, path, symbolStart, symbolEnd, orientation, positiveAtStart } = route;
+  const center = midpoint(symbolStart, symbolEnd);
+  const segLen = dist(symbolStart, symbolEnd);
+  const h = Math.max(9, Math.min(SYMBOL_HALF, segLen / 2 - 6));
+  const angle = angleDeg(symbolStart, symbolEnd);
+
+  // How far the symbol's body actually sticks out perpendicular to the wire —
+  // used so the name/value labels clear it regardless of orientation.
+  const lateralHalf =
+    el.type === "vsource" || el.type === "isource" ? Math.min(h, 20) + 3 : el.type === "capacitor" ? 16 : 13;
+
+  const perp: Pt = orientation === "h" ? { x: 0, y: -1 } : { x: 1, y: 0 };
+  const labelOffset = lateralHalf + 13;
+  const valueOffset = lateralHalf + 24;
+  const labelPos = { x: center.x + perp.x * labelOffset, y: center.y + perp.y * labelOffset - (orientation === "h" ? 3 : 0) };
+  const valuePos = { x: center.x - perp.x * valueOffset, y: center.y - perp.y * valueOffset + (orientation === "h" ? 3 : 0) };
+
+  const dirRaw = unitVec(symbolStart, symbolEnd);
+  const dirCurrent = positiveAtStart ? dirRaw : { x: -dirRaw.x, y: -dirRaw.y };
+  const arrowReach = Math.min(segLen / 2 - 6, h + 34);
+  const arrowBase = { x: center.x - dirCurrent.x * (arrowReach - 12), y: center.y - dirCurrent.y * (arrowReach - 12) };
+  const arrowTip = { x: center.x + dirCurrent.x * arrowReach, y: center.y + dirCurrent.y * arrowReach };
+  const arrowLabelPos = {
+    x: arrowTip.x + perp.x * 13 - dirCurrent.x * 2,
+    y: arrowTip.y + perp.y * 13 - dirCurrent.x * 2,
+  };
+  const showArrow = arrowReach > h + 10;
+
+  return (
+    <g>
+      <polyline points={path.map((p) => `${p.x},${p.y}`).join(" ")} stroke={WIRE_COLOR} strokeWidth={2} fill="none" />
+      <g transform={`translate(${center.x} ${center.y}) rotate(${angle})`}>
+        <ElementSymbolBody el={el} color={color} h={h} positiveAtStart={positiveAtStart} />
+      </g>
+      <text x={labelPos.x} y={labelPos.y} textAnchor="middle" fontSize={13} fontWeight={600} fill={color} fontFamily="'JetBrains Mono', monospace">
+        {el.label}
+      </text>
+      <text x={valuePos.x} y={valuePos.y} textAnchor="middle" fontSize={10.5} fill="#8b96a8" fontFamily="'JetBrains Mono', monospace">
+        {fmtNum(el.value)}
+        {unit}
+      </text>
+      {showArrow && (
+        <g>
+          {currentVal && <title>{`I${currentLabel} = ${fmtComplex(currentVal, isAC)} A (reference direction shown)`}</title>}
+          <line x1={arrowBase.x} y1={arrowBase.y} x2={arrowTip.x} y2={arrowTip.y} stroke="#5b8fd6" strokeWidth={1.6} />
+          <path
+            d={`M ${arrowTip.x - dirCurrent.x * 7 - perp.x * 4} ${arrowTip.y - dirCurrent.y * 7 - perp.y * 4} L ${arrowTip.x} ${arrowTip.y} L ${
+              arrowTip.x - dirCurrent.x * 7 + perp.x * 4
+            } ${arrowTip.y - dirCurrent.y * 7 + perp.y * 4}`}
+            stroke="#5b8fd6"
+            strokeWidth={1.6}
+            fill="none"
+            strokeLinejoin="round"
+          />
+          <text
+            x={arrowLabelPos.x}
+            y={arrowLabelPos.y}
+            textAnchor="middle"
+            fontSize={10.5}
+            fill="#7ea6e0"
+            fontFamily="'JetBrains Mono', monospace"
+          >
+            I{currentLabel}
+          </text>
+        </g>
+      )}
+    </g>
+  );
+}
+
+function GroundSymbol({ x, y }: { x: number; y: number }) {
+  return (
+    <g stroke="#8b96a8" strokeWidth={2}>
+      <line x1={x} y1={y} x2={x} y2={y + 9} />
+      <line x1={x - 13} y1={y + 9} x2={x + 13} y2={y + 9} />
+      <line x1={x - 8} y1={y + 15} x2={x + 8} y2={y + 15} />
+      <line x1={x - 3} y1={y + 21} x2={x + 3} y2={y + 21} />
+    </g>
+  );
 }
 
 function defaultElement(type: ElementType, existing: CircuitElement[]): CircuitElement {
@@ -69,7 +293,32 @@ export default function CircuitBuilder({ initialPresetIdx = 0 }: CircuitBuilderP
 
   const result: SolveResult = useMemo(() => solveCircuit(netlist, omega), [netlist, omega]);
   const nodes = useMemo(() => nodeSet(netlist), [netlist]);
-  const positions = useMemo(() => layoutNodes(nodes), [nodes]);
+  const schematic = useMemo(() => layoutSchematic(netlist), [netlist]);
+  const nodeDegree = useMemo(() => {
+    const deg = new Map<number, number>();
+    for (const el of elements) {
+      if (el.nodeA !== 0) deg.set(el.nodeA, (deg.get(el.nodeA) ?? 0) + 1);
+      if (el.nodeB !== 0) deg.set(el.nodeB, (deg.get(el.nodeB) ?? 0) + 1);
+    }
+    return deg;
+  }, [elements]);
+
+  // Short current-arrow labels (Ra -> "a", giving "Ia"). Falls back to the
+  // element's full label when two elements would otherwise collide (e.g.
+  // "R1" and "L1" both suffix to "1").
+  const currentLabels = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const el of elements) {
+      const suf = currentSuffix(el.label);
+      counts.set(suf, (counts.get(suf) ?? 0) + 1);
+    }
+    const map = new Map<string, string>();
+    for (const el of elements) {
+      const suf = currentSuffix(el.label);
+      map.set(el.id, (counts.get(suf) ?? 0) > 1 ? el.label : suf);
+    }
+    return map;
+  }, [elements]);
 
   const theveninResult = useMemo(() => {
     if (theveninP === null || theveninN === null || theveninP === theveninN) return null;
@@ -243,53 +492,40 @@ export default function CircuitBuilder({ initialPresetIdx = 0 }: CircuitBuilderP
 
         <div className="schematic-panel">
           <h3>Schematic</h3>
-          <svg viewBox="0 0 640 420" className="schematic-svg">
-            <rect width={640} height={420} fill="#0b0f17" />
-            {elements.map((el) => {
-              const a = positions.get(el.nodeA);
-              const b = positions.get(el.nodeB);
-              if (!a || !b) return null;
-              const mx = (a.x + b.x) / 2;
-              const my = (a.y + b.y) / 2;
-              const meta = TYPE_META[el.type];
-              const current = result.elementCurrents.get(el.id);
-              return (
-                <g key={el.id}>
-                  <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#3a4356" strokeWidth={2} />
-                  <circle cx={mx} cy={my} r={16} fill="#141b28" stroke={meta.color} strokeWidth={2} />
-                  <text x={mx} y={my - 22} textAnchor="middle" fontSize={12} fill={meta.color} fontFamily="monospace">
-                    {el.label}
-                  </text>
-                  <text x={mx} y={my + 34} textAnchor="middle" fontSize={10.5} fill="#8a95a8" fontFamily="monospace">
-                    {fmtNum(el.value)}
-                    {meta.unit}
-                  </text>
-                  {current && (
-                    <text x={mx} y={my + 47} textAnchor="middle" fontSize={9.5} fill="#5b7a99" fontFamily="monospace">
-                      I={fmtComplex(current, isAC)}A
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-            {nodes.map((n) => {
-              const p = positions.get(n);
-              if (!p) return null;
-              const v = result.nodeVoltages.get(n);
-              return (
-                <g key={n}>
-                  <circle cx={p.x} cy={p.y} r={n === 0 ? 8 : 6} fill={n === 0 ? "#5b7a99" : "#e6e8ee"} />
-                  <text x={p.x} y={p.y - 12} textAnchor="middle" fontSize={11} fill="#cfd6e2" fontFamily="monospace">
-                    {n === 0 ? "GND" : `n${n}`}
-                  </text>
-                  {n !== 0 && v && (
-                    <text x={p.x} y={p.y + 22} textAnchor="middle" fontSize={10.5} fill="#7ee0a8" fontFamily="monospace">
-                      {fmtComplex(v, isAC)}V
-                    </text>
-                  )}
-                </g>
-              );
-            })}
+          <svg
+            viewBox={`0 0 ${Math.max(schematic.width, 320)} ${Math.max(schematic.height, 260)}`}
+            className="schematic-svg"
+          >
+            <rect width={Math.max(schematic.width, 320)} height={Math.max(schematic.height, 260)} fill={SCHEM_BG} />
+            {schematic.groundXRange && schematic.groundY !== null && (
+              <line
+                x1={schematic.groundXRange[0]}
+                y1={schematic.groundY}
+                x2={schematic.groundXRange[1]}
+                y2={schematic.groundY}
+                stroke={WIRE_COLOR}
+                strokeWidth={2}
+              />
+            )}
+            {schematic.routes.map((route) => (
+              <SchematicElement
+                key={route.element.id}
+                route={route}
+                color={TYPE_META[route.element.type].color}
+                unit={TYPE_META[route.element.type].unit}
+                currentVal={result.elementCurrents.get(route.element.id)}
+                currentLabel={currentLabels.get(route.element.id) ?? route.element.label}
+                isAC={isAC}
+              />
+            ))}
+            {[...schematic.nodePos.entries()]
+              .filter(([n]) => (nodeDegree.get(n) ?? 0) >= 3)
+              .map(([n, p]) => (
+                <circle key={n} cx={p.x} cy={p.y} r={3.5} fill="#e6e8ee" />
+              ))}
+            {schematic.groundSymbolX !== null && schematic.groundY !== null && (
+              <GroundSymbol x={schematic.groundSymbolX} y={schematic.groundY} />
+            )}
           </svg>
           {result.error && <p className="error-text">{result.error}</p>}
         </div>

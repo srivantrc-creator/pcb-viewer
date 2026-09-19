@@ -23,7 +23,20 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <div className="brand">
-          <h1>Circuit Lab</h1>
+          <span className="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22">
+              <circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" strokeWidth="1.4" />
+              <path
+                d="M4 12h2.4l1.6-4 2.4 8 2.4-8 1.6 4H20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </span>
+          <h1>Chalem Circuit Lab</h1>
           <span className="tagline">Interactive tools for linear circuit analysis</span>
         </div>
         <nav className="tab-nav">
