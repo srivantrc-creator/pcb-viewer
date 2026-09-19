@@ -1,140 +1,79 @@
-import { useCallback, useMemo, useRef, useState } from "react";
-import PcbViewer from "./components/PcbViewer";
-import LayerToggles from "./components/LayerToggles";
-import NetPanel from "./components/NetPanel";
-import { parseKicadPcb } from "./lib/kicadParser";
-import { buildNetIndex } from "./lib/netUtils";
-import { LAYER_STYLES } from "./lib/layerStyle";
-import type { PcbBoard } from "./lib/types";
+import { useState } from "react";
+import CircuitBuilder from "./components/CircuitBuilder";
+import FirstOrderCalc from "./components/FirstOrderCalc";
+import MagneticsCalc from "./components/MagneticsCalc";
+import DiodeCalc from "./components/DiodeCalc";
+import MosfetCalc from "./components/MosfetCalc";
+import CourseMap from "./components/CourseMap";
+import type { ToolKey } from "./lib/syllabus";
 import "./App.css";
 
-const defaultVisibleLayers = new Set(
-  LAYER_STYLES.filter((l) => l.defaultVisible).map((l) => l.id)
-);
+type TabKey = "map" | "builder" | "first-order" | "magnetics" | "diode" | "mosfet";
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "map", label: "Course Map" },
+  { key: "builder", label: "Circuit Builder" },
+  { key: "first-order", label: "First-Order (RC/RL)" },
+  { key: "magnetics", label: "Magnetics" },
+  { key: "diode", label: "Diodes" },
+  { key: "mosfet", label: "MOSFETs" },
+];
+
+function toolKeyToTab(tool: ToolKey): { tab: TabKey; presetIdx?: number } {
+  switch (tool) {
+    case "builder-dc":
+      return { tab: "builder", presetIdx: 0 };
+    case "builder-ac":
+      return { tab: "builder", presetIdx: 5 };
+    case "first-order":
+      return { tab: "first-order" };
+    case "magnetics":
+      return { tab: "magnetics" };
+    case "diode":
+      return { tab: "diode" };
+    case "mosfet":
+      return { tab: "mosfet" };
+  }
+}
 
 export default function App() {
-  const [board, setBoard] = useState<PcbBoard | null>(null);
-  const [fileName, setFileName] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [visibleLayers, setVisibleLayers] = useState<Set<string>>(defaultVisibleLayers);
-  const [highlightedNet, setHighlightedNet] = useState<number | undefined>(undefined);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [tab, setTab] = useState<TabKey>("map");
+  const [builderPreset, setBuilderPreset] = useState(0);
+  const [builderKey, setBuilderKey] = useState(0);
 
-  const netIndex = useMemo(() => (board ? buildNetIndex(board) : new Map()), [board]);
-
-  const presentLayers = useMemo(() => {
-    const set = new Set<string>();
-    board?.items.forEach((item) => set.add(item.layer));
-    return set;
-  }, [board]);
-
-  const loadFromText = useCallback((text: string, name: string) => {
-    try {
-      const parsed = parseKicadPcb(text);
-      setBoard(parsed);
-      setFileName(name);
-      setError(null);
-      setHighlightedNet(undefined);
-      setVisibleLayers(new Set(defaultVisibleLayers));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to parse this file.");
+  function handleNavigate(tool: ToolKey) {
+    const { tab: nextTab, presetIdx } = toolKeyToTab(tool);
+    if (presetIdx !== undefined) {
+      setBuilderPreset(presetIdx);
+      setBuilderKey((k) => k + 1);
     }
-  }, []);
-
-  const loadSample = useCallback(() => {
-    setLoading(true);
-    fetch("/sample-board.kicad_pcb")
-      .then((res) => res.text())
-      .then((text) => loadFromText(text, "sample-board.kicad_pcb"))
-      .catch(() => setError("Couldn't load the sample board."))
-      .finally(() => setLoading(false));
-  }, [loadFromText]);
-
-  const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => loadFromText(String(reader.result ?? ""), file.name);
-      reader.onerror = () => setError("Couldn't read that file.");
-      reader.readAsText(file);
-      e.target.value = "";
-    },
-    [loadFromText]
-  );
-
-  const toggleLayer = useCallback((layer: string) => {
-    setVisibleLayers((prev) => {
-      const next = new Set(prev);
-      if (next.has(layer)) next.delete(layer);
-      else next.add(layer);
-      return next;
-    });
-  }, []);
+    setTab(nextTab);
+  }
 
   return (
     <div className="app">
       <header className="app-header">
         <div className="brand">
-          <h1>PCB Viewer</h1>
-          <span className="tagline">Interactive KiCad layout &amp; net explorer</span>
+          <h1>Circuit Lab</h1>
+          <span className="tagline">A study tool for ECE 20001 — Linear Circuit Analysis</span>
         </div>
-        <div className="header-actions">
-          <button onClick={loadSample} disabled={loading}>
-            Load sample board
-          </button>
-          <button onClick={() => fileInputRef.current?.click()}>Upload .kicad_pcb</button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".kicad_pcb"
-            onChange={handleFileChange}
-            style={{ display: "none" }}
-          />
-        </div>
+        <nav className="tab-nav">
+          {TABS.map((t) => (
+            <button key={t.key} className={tab === t.key ? "active" : ""} onClick={() => setTab(t.key)}>
+              {t.label}
+            </button>
+          ))}
+        </nav>
       </header>
 
-      {error && <div className="error-banner">{error}</div>}
-
-      {!board ? (
-        <div className="empty-state">
-          <p>Load the sample board or upload your own KiCad PCB export (.kicad_pcb) to get started.</p>
-        </div>
-      ) : (
-        <div className="workspace">
-          <aside className="sidebar left">
-            <div className="file-info">
-              <strong>{fileName}</strong>
-              <span>{board.footprints.length} footprints</span>
-            </div>
-            <LayerToggles
-              visibleLayers={visibleLayers}
-              onToggle={toggleLayer}
-              presentLayers={presentLayers}
-            />
-          </aside>
-
-          <main className="viewer-area">
-            <PcbViewer
-              board={board}
-              visibleLayers={visibleLayers}
-              highlightedNet={highlightedNet}
-              netIndex={netIndex}
-              onSelectNet={setHighlightedNet}
-            />
-          </main>
-
-          <aside className="sidebar right">
-            <NetPanel
-              board={board}
-              netIndex={netIndex}
-              highlightedNet={highlightedNet}
-              onSelectNet={setHighlightedNet}
-            />
-          </aside>
-        </div>
-      )}
+      <main className="app-main">
+        {tab === "map" && <CourseMap onNavigate={handleNavigate} />}
+        {tab === "builder" && <CircuitBuilder key={builderKey} initialPresetIdx={builderPreset} />}
+        {tab === "first-order" && <FirstOrderCalc />}
+        {tab === "magnetics" && <MagneticsCalc />}
+        {tab === "diode" && <DiodeCalc />}
+        {tab === "mosfet" && <MosfetCalc />}
+      </main>
     </div>
   );
 }

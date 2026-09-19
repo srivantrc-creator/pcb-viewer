@@ -1,23 +1,38 @@
-# PCB Viewer
+# Circuit Lab
 
-An interactive KiCad PCB layout viewer built for a resume/portfolio project.
-Upload a `.kicad_pcb` file (or load the bundled sample board) and explore its
-copper layers, silkscreen, footprints, and nets directly in the browser —
-click any pad, track, or via to highlight its full net across every layer.
+A study/companion tool for an intro linear-circuits course (sources,
+resistors, KVL/KCL, nodal & mesh analysis, Thevenin/Norton, superposition,
+AC phasors, first-order transients, diodes, and MOSFETs — a full 16-week
+syllabus). Built to actually check homework with, not just look impressive.
 
-## What it demonstrates
+## What's in it
 
-- **A from-scratch S-expression parser** for KiCad's native PCB format
-  (`src/lib/sexpr.ts`, `src/lib/kicadParser.ts`) — no third-party KiCad
-  library, so it shows an understanding of the underlying data model (nets,
-  footprints, pads, layers), not just a CAD tool's GUI.
-- **Net-aware rendering**: every board item is indexed by net ID
-  (`src/lib/netUtils.ts`), so clicking any copper feature highlights every
-  other item on the same net across all layers in O(1).
-- **A generated demo board** (`scripts/gen-sample-board.mjs`) — a small
-  9-component IoT sensor node with a regulator, MCU, I2C pull-ups, and an
-  LED driver stage, so the app has a realistic dataset to show off without
-  needing KiCad installed.
+- **Circuit Builder** — enter a netlist (elements between labeled nodes,
+  node 0 = ground), and it solves for every node voltage and element
+  current/power using Modified Nodal Analysis. The same solver runs in DC
+  mode (weeks 1-5) and AC/phasor mode (weeks 8-10, R/L/C as complex
+  impedances at a chosen frequency) — DC is just AC at ω = 0.
+  - **Thevenin/Norton tab**: pick two "port" nodes, get V_th, R_th/Z_th, and I_N.
+  - **Superposition tab**: see each independent source's individual
+    contribution to a node voltage, with the others zeroed.
+- **First-Order Calculator** (weeks 6-7) — RC/RL step response: time
+  constant, the general solution equation, and a plotted response curve.
+- **Magnetics Calculator** (week 11) — coupling coefficient k, ideal
+  transformer turns ratio, and reflected impedance.
+- **Diode Calculator** (weeks 11-13) — solves the standard series
+  source+resistor+diode circuit with the constant-voltage-drop model,
+  showing the assume-ON-then-check worked steps.
+- **MOSFET Calculator** (weeks 14-16) — bias-point region check
+  (cutoff/triode/saturation), g_m and r_o, and common-source amplifier gain.
+- **Course Map** — the syllabus, week by week, linking straight to the
+  right tool.
+
+## Why not one generic circuit simulator for everything?
+
+Diodes and MOSFETs are nonlinear, so "just solve it" isn't really a thing
+the way it is for a linear resistor network — those sections are built
+around the specific hand-analysis methods the course teaches (constant-
+voltage-drop, square-law region checks) instead of pretending to be SPICE.
 
 ## Running locally
 
@@ -26,46 +41,23 @@ npm install
 npm run dev
 ```
 
-Open the printed local URL. Click **Load sample board**, or **Upload
-.kicad_pcb** to try your own KiCad export.
+## Verifying the solver
 
-## Regenerating the sample board
+The Modified Nodal Analysis engine has a standalone numeric test suite
+(voltage/current dividers, Thevenin equivalents, superposition, and an AC
+RC divider checked against hand-calculated impedance values):
 
 ```bash
-node scripts/gen-sample-board.mjs
+npx tsx scripts/verify-circuit.ts
 ```
 
 ## Deploying to Vercel
 
-This is a standard Vite + React + TypeScript app — Vercel auto-detects the
-framework and build settings, so there's nothing to configure.
-
-**Option A — from GitHub (recommended):**
-
-1. Push this folder to a new GitHub repository.
-2. Go to [vercel.com/new](https://vercel.com/new) and import that repo.
-3. Leave the defaults (Framework Preset: Vite, Build Command: `npm run
-   build`, Output Directory: `dist`) and click **Deploy**.
-4. Vercel gives you a live `https://your-project.vercel.app` URL, and every
-   push to `main` redeploys automatically.
-
-**Option B — from the command line:**
+Standard Vite + React + TypeScript app — Vercel auto-detects everything.
+Push to GitHub, import the repo at vercel.com/new, deploy. See the previous
+version of this README (in git history) for the full walkthrough, or:
 
 ```bash
-npm install -g vercel   # one-time
-cd pcb-viewer
-vercel                  # first deploy, follow the prompts
-vercel --prod           # promote to your production URL
+npm install -g vercel
+vercel --prod
 ```
-
-## Known limitations (by design, for scope)
-
-- Footprint courtyard/outline silkscreen graphics (`fp_line` inside a
-  footprint) aren't rendered — only reference-designator text and pads.
-  Board-level graphics (`gr_line`, `gr_circle`, board outline) render fully.
-- Pad and footprint rotation follows a standard rotation-matrix convention;
-  it's visually consistent but hasn't been cross-checked pixel-for-pixel
-  against KiCad's own renderer for every rotation edge case.
-- Zones are drawn from their declared outline polygon, not the
-  copper-fill algorithm KiCad computes at plot time (no thermal reliefs,
-  keepout carve-outs, etc.).
