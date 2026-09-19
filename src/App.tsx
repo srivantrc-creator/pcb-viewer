@@ -37,7 +37,6 @@ export default function App() {
             </svg>
           </span>
           <h1>Chalem Circuit Lab</h1>
-          <span className="tagline">Interactive tools for linear circuit analysis</span>
         </div>
         <nav className="tab-nav">
           {TABS.map((t) => (
