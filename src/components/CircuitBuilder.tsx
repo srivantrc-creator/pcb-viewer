@@ -163,6 +163,7 @@ function SchematicElement({
   currentVal,
   currentLabel,
   isAC,
+  phase,
 }: {
   route: ElementRoute;
   color: string;
@@ -170,6 +171,11 @@ function SchematicElement({
   currentVal: Complex | undefined;
   currentLabel: string;
   isAC: boolean;
+  /** Elements are drawn in three passes across the whole circuit — every wire
+   * (and current-arrow shaft) first, then every symbol body, then every label —
+   * so a wire belonging to one element can never land on top of another
+   * element's symbol and obscure it (e.g. a shared-node bus crossing a vsource). */
+  phase: "wire" | "symbol" | "label";
 }) {
   const { element: el, path, symbolStart, symbolEnd, orientation, positiveAtStart } = route;
   const center = midpoint(symbolStart, symbolEnd);
@@ -199,12 +205,31 @@ function SchematicElement({
   };
   const showArrow = arrowReach > h + 10;
 
-  return (
-    <g>
-      <polyline points={path.map((p) => `${p.x},${p.y}`).join(" ")} stroke={WIRE_COLOR} strokeWidth={2} fill="none" />
+  const arrowTitle = currentVal ? `I${currentLabel} = ${fmtComplex(currentVal, isAC)} A (reference direction shown)` : undefined;
+
+  if (phase === "wire") {
+    return (
+      <g>
+        <polyline points={path.map((p) => `${p.x},${p.y}`).join(" ")} stroke={WIRE_COLOR} strokeWidth={2} fill="none" />
+        {showArrow && (
+          <line x1={arrowBase.x} y1={arrowBase.y} x2={arrowTip.x} y2={arrowTip.y} stroke="#5b8fd6" strokeWidth={1.6}>
+            {arrowTitle && <title>{arrowTitle}</title>}
+          </line>
+        )}
+      </g>
+    );
+  }
+
+  if (phase === "symbol") {
+    return (
       <g transform={`translate(${center.x} ${center.y}) rotate(${angle})`}>
         <ElementSymbolBody el={el} color={color} h={h} positiveAtStart={positiveAtStart} />
       </g>
+    );
+  }
+
+  return (
+    <g>
       <text x={labelPos.x} y={labelPos.y} textAnchor="middle" fontSize={13} fontWeight={600} fill={color} fontFamily="'JetBrains Mono', monospace">
         {el.label}
       </text>
@@ -214,8 +239,7 @@ function SchematicElement({
       </text>
       {showArrow && (
         <g>
-          {currentVal && <title>{`I${currentLabel} = ${fmtComplex(currentVal, isAC)} A (reference direction shown)`}</title>}
-          <line x1={arrowBase.x} y1={arrowBase.y} x2={arrowTip.x} y2={arrowTip.y} stroke="#5b8fd6" strokeWidth={1.6} />
+          {arrowTitle && <title>{arrowTitle}</title>}
           <path
             d={`M ${arrowTip.x - dirCurrent.x * 7 - perp.x * 4} ${arrowTip.y - dirCurrent.y * 7 - perp.y * 4} L ${arrowTip.x} ${arrowTip.y} L ${
               arrowTip.x - dirCurrent.x * 7 + perp.x * 4
@@ -511,17 +535,20 @@ export default function CircuitBuilder({ initialPresetIdx = 0 }: CircuitBuilderP
                 strokeWidth={2}
               />
             )}
-            {schematic.routes.map((route) => (
-              <SchematicElement
-                key={route.element.id}
-                route={route}
-                color={TYPE_META[route.element.type].color}
-                unit={TYPE_META[route.element.type].unit}
-                currentVal={result.elementCurrents.get(route.element.id)}
-                currentLabel={currentLabels.get(route.element.id) ?? route.element.label}
-                isAC={isAC}
-              />
-            ))}
+            {(["wire", "symbol", "label"] as const).map((phase) =>
+              schematic.routes.map((route) => (
+                <SchematicElement
+                  key={`${phase}-${route.element.id}`}
+                  route={route}
+                  color={TYPE_META[route.element.type].color}
+                  unit={TYPE_META[route.element.type].unit}
+                  currentVal={result.elementCurrents.get(route.element.id)}
+                  currentLabel={currentLabels.get(route.element.id) ?? route.element.label}
+                  isAC={isAC}
+                  phase={phase}
+                />
+              ))
+            )}
             {[...schematic.nodePos.entries()]
               .filter(([n]) => (nodeDegree.get(n) ?? 0) >= 3)
               .map(([n, p]) => (
