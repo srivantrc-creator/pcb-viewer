@@ -294,6 +294,9 @@ export default function CircuitBuilder({ initialPresetIdx = 0 }: CircuitBuilderP
   const result: SolveResult = useMemo(() => solveCircuit(netlist, omega), [netlist, omega]);
   const nodes = useMemo(() => nodeSet(netlist), [netlist]);
   const schematic = useMemo(() => layoutSchematic(netlist), [netlist]);
+  const schemViewW = Math.max(schematic.width, 280);
+  const schemViewH = Math.max(schematic.height, 200);
+  const isWideSchematic = schematic.width > 750;
   const nodeDegree = useMemo(() => {
     const deg = new Map<number, number>();
     for (const el of elements) {
@@ -395,7 +398,7 @@ export default function CircuitBuilder({ initialPresetIdx = 0 }: CircuitBuilderP
         <p className="preset-desc">{PRESETS[presetIdx]?.description}</p>
       </div>
 
-      <div className="builder-grid">
+      <div className="builder-grid" style={isWideSchematic ? { gridTemplateColumns: "1fr" } : undefined}>
         <div className="element-editor">
           <h3>Elements</h3>
           <div className="add-buttons">
@@ -490,13 +493,14 @@ export default function CircuitBuilder({ initialPresetIdx = 0 }: CircuitBuilderP
           <p className="hint">Node 0 is always ground. Give any two elements the same node number to connect them.</p>
         </div>
 
-        <div className="schematic-panel">
+        <div className={isWideSchematic ? "schematic-panel schematic-panel--wide" : "schematic-panel"}>
           <h3>Schematic</h3>
           <svg
-            viewBox={`0 0 ${Math.max(schematic.width, 320)} ${Math.max(schematic.height, 260)}`}
+            viewBox={`0 0 ${schemViewW} ${schemViewH}`}
+            preserveAspectRatio="xMidYMid meet"
             className="schematic-svg"
           >
-            <rect width={Math.max(schematic.width, 320)} height={Math.max(schematic.height, 260)} fill={SCHEM_BG} />
+            <rect width={schemViewW} height={schemViewH} fill={SCHEM_BG} />
             {schematic.groundXRange && schematic.groundY !== null && (
               <line
                 x1={schematic.groundXRange[0]}
